@@ -1,7 +1,7 @@
 import java.util.Random;
 
 public class TwoPointCrossover implements CrossoverStrategy {
-    //Melakukan two point crossover
+    //wo point crossover
     @Override
     public Chromosome[] crossover(Chromosome parent1, Chromosome parent2, Random random) {
         int length = parent1.getLength();

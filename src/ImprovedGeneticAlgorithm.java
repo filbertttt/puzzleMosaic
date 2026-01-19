@@ -32,7 +32,7 @@ public class ImprovedGeneticAlgorithm {
     private double initialDiversity;
     private int originalElitismCount;  // Simpan elitism original untuk temporary reduction
     
-    // Adaptive parameters (IMPROVEMENT)
+    // Adaptive parameters
     private double originalCrossoverRate;  // Simpan crossover rate original untuk adaptive
     private double originalMutationRate;   // Simpan mutation rate original untuk adaptive
     private double improvementRate;        // Track improvement rate untuk adaptive parameters
@@ -51,10 +51,10 @@ public class ImprovedGeneticAlgorithm {
         
         this.puzzle = puzzle;
         this.populationSize = populationSize;
-        this.crossoverRate = crossoverRate;  // Store for reference
-        this.mutationRate = mutationRate;    // Store for reference
+        this.crossoverRate = crossoverRate;  
+        this.mutationRate = mutationRate;    
         this.maxGenerations = maxGenerations;
-        this.elitismCount = elitismCount;    // Store for reference
+        this.elitismCount = elitismCount;   
         this.selectionStrategy = selectionStrategy;
         this.crossoverStrategy = crossoverStrategy;
         this.mutationStrategy = mutationStrategy;
@@ -65,12 +65,11 @@ public class ImprovedGeneticAlgorithm {
         this.currentGeneration = 0;
         this.bestFitness = Double.MAX_VALUE;
         this.stagnationCount = 0;
-        this.originalElitismCount = elitismCount;  // Simpan untuk temporary reduction
+        this.originalElitismCount = elitismCount;  
         
-        // Save original parameters for adaptive mechanisms (IMPROVEMENT)
         this.originalCrossoverRate = crossoverRate;
         this.originalMutationRate = mutationRate;
-        this.improvementRate = 1.0;  // Start with normal rate
+        this.improvementRate = 1.0;  
     }
     
     //Getter untuk mendapatkan parameter original
@@ -90,18 +89,15 @@ public class ImprovedGeneticAlgorithm {
         }
         
         // Terapkan heuristik pada sebagian populasi
-        // Puzzle kompleks (banyak hints) → lebih banyak heuristics
-        // Puzzle sederhana (sedikit hints) → lebih sedikit heuristics
         int puzzleSize = puzzle.getWidth() * puzzle.getHeight();
         int hintCount = puzzle.getHintPositions().length;
-        double hintDensity = (double) hintCount / puzzleSize;  // Density hints
+        double hintDensity = (double) hintCount / puzzleSize;  
         
         // Adaptive heuristic percentage: semakin padat hints, semakin banyak heuristics
-        // Range: 15% (sparse) hingga 40% (dense)
-        double heuristicPercent = 0.15 + (hintDensity * 0.25);  // 15% + (density * 25%)
-        heuristicPercent = Math.min(0.40, Math.max(0.15, heuristicPercent));  // Clamp 15-40%
+        double heuristicPercent = 0.15 + (hintDensity * 0.25);  
+        heuristicPercent = Math.min(0.40, Math.max(0.15, heuristicPercent));  
         
-        // Untuk puzzle sangat kecil (< 16), batasi heuristics untuk diversity
+        //batasi heuristics untuk diversity, jika puzzle kecil
         if (puzzleSize < 16) {
             heuristicPercent = Math.min(0.25, heuristicPercent);
         }
@@ -120,7 +116,7 @@ public class ImprovedGeneticAlgorithm {
         initialDiversity = currentDiversity;
         previousBestFitness = bestFitness;
         
-        // Debug: print beberapa fitness awal
+        // Print fitness awal
         System.out.println("Initial population fitness range:");
         Arrays.sort(population, new Comparator<Chromosome>() {
             @Override
@@ -132,7 +128,7 @@ public class ImprovedGeneticAlgorithm {
         System.out.println("  Worst: " + String.format("%.2f", population[population.length - 1].getFitness()));
         System.out.println("  Median: " + String.format("%.2f", population[population.length / 2].getFitness()));
     }
-    
+
     private void evaluatePopulation() {
         for (Chromosome chromosome : population) {
             fitnessFunction.calculateFitness(chromosome);
@@ -149,8 +145,7 @@ public class ImprovedGeneticAlgorithm {
     }
     
     private void updatePopulationStatistics() {
-        // Hitung diversity lebih jarang untuk populasi besar (setiap 5 generasi)
-        // Untuk large population, diversity calculation bisa sangat lambat
+        // Hitung diversity, untuk large population, hitung lebih jarang (setiap 5 generasi)
         boolean shouldCalculateDiversity = true;
         if (populationSize > 300) {
             shouldCalculateDiversity = (currentGeneration % 5 == 0 || currentGeneration == 0);
@@ -159,9 +154,8 @@ public class ImprovedGeneticAlgorithm {
         if (shouldCalculateDiversity) {
             currentDiversity = DiversityMeasure.calculateDiversity(population);
         }
-        // Jika tidak dihitung, gunakan nilai sebelumnya (atau estimasi)
-        // Ini acceptable karena diversity tidak berubah drastis dalam beberapa generasi
-        
+
+        //menghitung rata-rata fitness
         double totalFitness = 0.0;
         for (Chromosome chromosome : population) {
             totalFitness += chromosome.getFitness();
@@ -179,33 +173,26 @@ public class ImprovedGeneticAlgorithm {
         });
     }
     
-    /**
-     * Escape mechanism 1: Mutation boost + Random exploration
-     * OPTIMIZED: Untuk large population, lebih agresif
-     * Meningkatkan mutation rate sementara untuk eksplorasi lebih banyak
-     * TAMBAHAN: Temporary elitism reduction + Random exploration boost
-     */
+    //Escape mechanism 1: Mutation boost + Random exploration
     private void escapeMutationBoost() {
-        // OPTIMIZED: Untuk large population, reduction lebih kecil (keep more elite)
+        //untuk large population, reduction lebih kecil
         boolean isLargePopulation = (populationSize > maxGenerations);
         double reductionFactor = isLargePopulation ? 0.6 : 0.5;
         int tempElitism = Math.max(1, (int)(originalElitismCount * reductionFactor));
         
-        // 2. Mutation boost dengan rate lebih tinggi (OPTIMIZED untuk large pop)
-        // OPTIMIZED: Untuk large population, boost lebih tinggi untuk diversity
+        //Mutation boost untuk large population
         double boostMultiplier = isLargePopulation ? 5.0 : 4.0;
-        double boostRate = Math.min(0.25, originalMutationRate * boostMultiplier);  // OPTIMIZED: Max 0.25 (dari 0.20)
+        double boostRate = Math.min(0.25, originalMutationRate * boostMultiplier);
         for (int i = tempElitism; i < populationSize; i++) {
             mutationStrategy.mutate(population[i], boostRate, random);
         }
         
-        // 3. Random exploration boost: OPTIMIZED untuk large population
-        // OPTIMIZED: Untuk large population, lebih banyak random exploration (15% vs 10%)
+        //Random exploration boost untuk large population
         double explorationPercent = isLargePopulation ? 0.15 : 0.10;
         int randomExplorationCount = Math.max(1, (int)(populationSize * explorationPercent));
-        sortPopulation();  // Sort dulu untuk tahu yang terburuk
+        sortPopulation();  //untuk tahu yang terburuk
         for (int i = populationSize - randomExplorationCount; i < populationSize; i++) {
-            // Ganti dengan kromosom random baru (TANPA heuristics untuk eksplorasi maksimal)
+            // Ganti dengan kromosom random baru
             population[i] = new Chromosome(puzzle.getWidth(), puzzle.getHeight(), random);
         }
         
@@ -213,19 +200,15 @@ public class ImprovedGeneticAlgorithm {
         updateBestChromosome();
     }
     
-    /**
-     * Escape mechanism 2: Aggressive diversity injection + Hybrid creation
-     * OPTIMIZED: Untuk large population, lebih agresif
-     * ENHANCED: Mengganti 60-70% populasi terburuk dengan kromosom baru/hybrid untuk eksplorasi maksimal
-     */
+    //Escape mechanism 2: Aggressive diversity injection + Hybrid creation
     private void escapeDiversityInjection() {
-        sortPopulation();  // Sort untuk tahu yang terburuk
+        sortPopulation();  //untuk tahu yang terburuk
         
-        // OPTIMIZED: Untuk large population, replace lebih banyak
+        //untuk large population, replace lebih banyak
         boolean isLargePopulation = (populationSize > maxGenerations);
         double replacePercent;
         if (isLargePopulation) {
-            // OPTIMIZED: Large population butuh lebih banyak diversity injection (70% vs 65%)
+            //Large population butuh lebih banyak diversity injection
             replacePercent = (bestFitness > 15.0) ? 0.70 : 0.65;
         } else {
             replacePercent = (bestFitness > 15.0) ? 0.65 : 0.55;
@@ -233,12 +216,11 @@ public class ImprovedGeneticAlgorithm {
         int replaceCount = (int) (populationSize * replacePercent);
         
         for (int i = populationSize - replaceCount; i < populationSize; i++) {
-            // 50% random baru, 50% hybrid (kombinasi dari berbagai individu)
             if (random.nextDouble() < 0.5) {
-                // Random baru (TANPA heuristics untuk eksplorasi maksimal)
+                // Random baru
                 population[i] = new Chromosome(puzzle.getWidth(), puzzle.getHeight(), random);
             } else {
-                // Hybrid chromosome: kombinasi dari 2-3 individu random
+                // Hybrid chromosome
                 population[i] = createHybridChromosome();
             }
         }
@@ -247,29 +229,26 @@ public class ImprovedGeneticAlgorithm {
         updateBestChromosome();
     }
     
-    /**
-     * Membuat kromosom hybrid dari kombinasi beberapa individu untuk eksplorasi
-     * Hybrid = kombinasi random dari 2-3 kromosom yang berbeda
-     */
+    //Membuat kromosom hybrid dari kombinasi beberapa individu
     private Chromosome createHybridChromosome() {
         // Pilih 2-3 kromosom random dari populasi
-        int numParents = 2 + random.nextInt(2);  // 2 atau 3 parents
+        int numParents = 2 + random.nextInt(2);  
         Chromosome[] parents = new Chromosome[numParents];
         
         for (int i = 0; i < numParents; i++) {
             parents[i] = population[random.nextInt(populationSize)];
         }
         
-        // Buat hybrid: untuk setiap posisi, pilih gen dari salah satu parent secara random
+        // Buat hybrid, untuk setiap posisi, pilih gen dari salah satu parent secara random
         Chromosome hybrid = new Chromosome(puzzle.getWidth(), puzzle.getHeight(), random);
         for (int i = 0; i < hybrid.getLength(); i++) {
             Chromosome selectedParent = parents[random.nextInt(numParents)];
             hybrid.setGene(i, selectedParent.getGene(i));
         }
         
-        // Tambah sedikit mutasi untuk eksplorasi lebih lanjut
+        // Tambah sedikit mutasi
         for (int i = 0; i < hybrid.getLength(); i++) {
-            if (random.nextDouble() < 0.1) {  // 10% chance mutasi
+            if (random.nextDouble() < 0.1) {  
                 hybrid.setGene(i, !hybrid.getGene(i));
             }
         }
@@ -277,26 +256,21 @@ public class ImprovedGeneticAlgorithm {
         return hybrid;
     }
     
-    /**
-     * Escape mechanism 3: Aggressive partial restart + Population expansion
-     * Keep HANYA best 1 chromosome, restart 80-90% populasi untuk eksplorasi maksimal
-     * TAMBAHAN: Temporary population expansion untuk eksplorasi lebih luas
-     */
+    //Escape mechanism 3: Aggressive partial restart + Population expansion
     private void escapePartialRestart() {
-        sortPopulation();  // Sort untuk tahu yang terbaik
+        sortPopulation();  //untuk tahu yang terbaik
         
-        // Simpan HANYA best 1 chromosome (bukan elite, untuk eksplorasi maksimal)
+        // Simpan best chromosome
         Chromosome savedBest = bestChromosome.clone();
         
-        // OPTIMIZED: Untuk large population, replace lebih banyak (90% vs 85%)
+        //untuk large population, replace lebih banyak
         boolean isLargePopulation = (populationSize > maxGenerations);
         double replacePercent = isLargePopulation ? 0.90 : 0.85;
         int replaceCount = (int) (populationSize * replacePercent);
         
-        for (int i = 1; i < replaceCount; i++) {  // Mulai dari index 1 (keep best di index 0)
-            // 70% random baru, 30% hybrid
+        for (int i = 1; i < replaceCount; i++) { 
             if (random.nextDouble() < 0.7) {
-                // Random baru (TANPA heuristics untuk eksplorasi maksimal)
+                // Random baru
                 population[i] = new Chromosome(puzzle.getWidth(), puzzle.getHeight(), random);
             } else {
                 // Hybrid chromosome
@@ -304,11 +278,10 @@ public class ImprovedGeneticAlgorithm {
             }
         }
         
-        // Pastikan best chromosome tetap ada di posisi 0
+        // Pastikan best chromosome tetap di index 0
         population[0] = savedBest;
         
-        // OPTIMIZED: Temporary population expansion untuk large population
-        // OPTIMIZED: Untuk large population, expansion lebih besar (20% vs 15%)
+        // Temporary population expansion untuk large population
         double expansionPercent = isLargePopulation ? 0.20 : 0.15;
         int expansionCount = Math.max(1, (int)(populationSize * expansionPercent));
         Chromosome[] expandedPopulation = new Chromosome[populationSize + expansionCount];
@@ -332,205 +305,152 @@ public class ImprovedGeneticAlgorithm {
             }
         });
         
-        // Ambil yang terbaik untuk populasi
+        // Ambil yang terbaik
         System.arraycopy(expandedPopulation, 0, population, 0, populationSize);
         
         evaluatePopulation();
         updateBestChromosome();
     }
     
-    /**
-     * Deteksi stagnasi yang lebih cerdas dan sensitif (ENHANCED)
-     * Stagnasi jika: fitness tidak membaik DAN (diversity rendah ATAU populasi homogen ATAU improvement rate rendah)
-     * 
-     * ENHANCED: Lebih sensitif untuk puzzle besar dan konvergensi lambat
-     * 
-     * @return true jika populasi stagnan
-     */
+    //Deteksi stagnasi
     private boolean isStagnating() {
-        // Stagnasi jika:
-        // 1. Fitness tidak membaik (tidak ada improvement signifikan)
-        // ENHANCED: Threshold lebih sensitif, khususnya untuk fitness besar
+        // Stagnasi jika fitness tidak membaik
         double fitnessThreshold = (bestFitness > 20.0) ? 0.01 : 
                                  (bestFitness > 10.0) ? 0.005 : 0.0001;
         boolean fitnessStagnant = (Math.abs(bestFitness - previousBestFitness) < fitnessThreshold);
         
-        // 2. Diversity terlalu rendah (< 30% dari initial diversity, ENHANCED dari 25%)
-        // Atau jika diversity rendah RELATIF terhadap fitness (untuk puzzle besar)
+        // Diversity terlalu rendah
         boolean diversityLow = (currentDiversity < initialDiversity * 0.30);
-        // ENHANCED: Untuk puzzle besar dengan fitness tinggi, butuh diversity lebih tinggi
         if (bestFitness > 15.0 && currentDiversity < initialDiversity * 0.40) {
-            diversityLow = true;  // Lebih sensitif untuk puzzle besar
+            diversityLow = true;  
         }
         
-        // 3. Populasi terlalu homogen (std dev fitness < 0.8, ENHANCED dari 0.6)
-        // Atau jika std dev rendah RELATIF terhadap fitness (untuk puzzle besar)
+        // Populasi terlalu homogen
         boolean avgFitnessStagnant = (fitnessStdDev < 0.8);
-        // ENHANCED: Untuk puzzle besar, perlu std dev lebih tinggi
         if (bestFitness > 15.0 && fitnessStdDev < bestFitness * 0.05) {
-            avgFitnessStagnant = true;  // Lebih sensitif untuk puzzle besar
+            avgFitnessStagnant = true;  
         }
         
-        // 4. Improvement rate terlalu rendah (ENHANCED)
-        // ENHANCED: Threshold lebih sensitif untuk puzzle besar
+        // Improvement rate terlalu rendah
         double improvementThreshold = (bestFitness > 15.0) ? 0.002 : 0.001;
         boolean lowImprovementRate = (improvementRate < improvementThreshold && currentGeneration > maxGenerations * 0.05);
         
-        // ENHANCED: Stagnasi juga jika tidak ada improvement dalam beberapa generasi berturut-turut
-        // Untuk puzzle besar, jika stagnasi count > 5, langsung deteksi stagnasi
+        // Stagnasi juga jika tidak ada improvement dalam beberapa generasi berturut-turut
         boolean consecutiveNoImprovement = (stagnationCount > 5 && bestFitness > 10.0);
-        
-        // Stagnasi jika fitness tidak membaik DAN 
-        // (diversity rendah ATAU populasi homogen ATAU improvement rate rendah ATAU consecutive no improvement)
         return fitnessStagnant && (diversityLow || avgFitnessStagnant || lowImprovementRate || consecutiveNoImprovement);
     }
     
-    /**
-     * Early stopping dengan multiple criteria (IMPROVED)
-     * Berhenti lebih awal jika sudah jelas tidak akan menemukan solusi
-     * 
-     * @return true jika harus berhenti lebih awal
-     */
+    //Early stopping dengan multiple criteria
     private boolean shouldStopEarly() {
-        // ENHANCED: Untuk large population strategy, early stop perlu lebih hati-hati
-        // Karena max generation kecil (500), kita perlu lebih banyak kesempatan
-        
-        // Jangan early stop terlalu cepat
-        // ENHANCED: Untuk large population, beri lebih banyak kesempatan (20% dari maxGen)
         double earlyStopThreshold = (populationSize > maxGenerations) ? 0.2 : 0.1;
         if (currentGeneration < maxGenerations * earlyStopThreshold) {
             return false;
         }
         
-        // Early stop jika:
-        // 1. Fitness sudah sangat baik (sudah dekat solusi)
+        // Early stop jika fitness sudah sangat baik
         if (bestFitness < 0.1 && averageFitness < 1.0) {
-            // Sudah sangat dekat, beri kesempatan lebih banyak
             return false;
         }
         
-        // 2. Improvement rate sangat rendah DAN diversity sangat rendah (ENHANCED)
-        // ENHANCED: Untuk large population, threshold lebih rendah (lebih banyak kesempatan)
+        // Improvement rate sangat rendah dan diversity sangat rendah
         double improvementThreshold = (populationSize > maxGenerations) ? 0.0003 : 0.0005;
         double diversityThreshold = (populationSize > maxGenerations) ? 0.10 : 0.15;
         double generationThreshold = (populationSize > maxGenerations) ? 0.6 : 0.5;
         
         if (improvementRate < improvementThreshold && currentDiversity < initialDiversity * diversityThreshold 
             && currentGeneration > maxGenerations * generationThreshold) {
-            return true;  // Kemungkinan besar tidak akan menemukan solusi
+            return true;  
         }
         
-        // 3. Stagnasi sangat lama tanpa improvement (ENHANCED)
-        // ENHANCED: Untuk large population, threshold lebih tinggi (lebih banyak kesempatan)
+        // Stagnasi sangat lama tanpa improvement
         double stagnationThreshold = (populationSize > maxGenerations) ? 0.4 : 0.3;
         if (stagnationCount > maxGenerations * stagnationThreshold && bestFitness > 5.0) {
-            return true;  // Stagnasi terlalu lama tanpa kemajuan
+            return true;  
         }
         
         return false;
     }
     
-    /**
-     * Menghitung adaptive crossover rate berdasarkan progress dan diversity
-     * - Early stage (high diversity): Higher crossover rate untuk eksplorasi
-     * - Late stage (low diversity): Lower crossover rate untuk eksploitasi
-     */
+    //Menghitung adaptive crossover rate berdasarkan progress dan diversity
     private double calculateAdaptiveCrossoverRate() {
         // Base crossover rate
         double adaptiveRate = originalCrossoverRate;
         
         // Factor 1: Berdasarkan diversity (semakin rendah diversity, semakin rendah crossover)
-        // Diversity tinggi → lebih banyak crossover untuk eksplorasi
-        // Diversity rendah → lebih sedikit crossover untuk eksploitasi
         double diversityFactor = currentDiversity / initialDiversity;
-        diversityFactor = Math.max(0.5, Math.min(1.5, diversityFactor));  // Clamp 0.5-1.5
+        diversityFactor = Math.max(0.5, Math.min(1.5, diversityFactor));  
         
         // Factor 2: Berdasarkan progress (semakin dekat solusi, semakin rendah crossover)
-        // Progress: normalized fitness improvement
-        // ENHANCED: Fine-tuning mode - jika fitness sangat dekat, tingkatkan crossover untuk fine-tuning
         double progressFactor = 1.0;
         if (bestFitness < 15.0) {
-            // Fine-tuning mode: tingkatkan crossover untuk fine-tuning
-            // Fitness sangat dekat → lebih banyak crossover untuk fine-tuning
             if (bestFitness < 2.0) {
-                progressFactor = 1.15;  // Sangat dekat: tingkatkan crossover 15%
+                progressFactor = 1.15;  
             } else if (bestFitness < 5.0) {
-                progressFactor = 1.10;  // Dekat: tingkatkan crossover 10%
+                progressFactor = 1.10;  
             } else {
-                progressFactor = 1.05;  // Mendekati: tingkatkan crossover 5%
+                progressFactor = 1.05;  
             }
         } else if (bestFitness > 0 && averageFitness > 0) {
             double fitnessRatio = bestFitness / (averageFitness + 1.0);
-            // Jika best fitness sudah jauh lebih baik dari average, kurangi crossover
-            progressFactor = 0.7 + (0.3 * fitnessRatio);  // Range: 0.7-1.0
+            progressFactor = 0.7 + (0.3 * fitnessRatio);  
         }
         
-        // Combine factors
         adaptiveRate = originalCrossoverRate * diversityFactor * progressFactor;
         
-        // Clamp: 0.5 - 0.95 (crossover rate tidak boleh terlalu rendah atau terlalu tinggi)
         return Math.max(0.5, Math.min(0.95, adaptiveRate));
     }
     
-    /**
-     * Menghitung dynamic elitism berdasarkan diversity dan progress
-     * - High diversity: Lower elitism untuk eksplorasi
-     * - Low diversity: Higher elitism untuk eksploitasi
-     * - Stagnation: Temporary reduction untuk eksplorasi
-     */
+    //Menghitung dynamic elitism berdasarkan diversity dan progress
     private int calculateDynamicElitism() {
         int dynamicElitism = originalElitismCount;
         
-        // ENHANCED: Untuk large population strategy (pop > maxGen), elitism perlu disesuaikan
+        // Untuk large population strategy (pop > maxGen), elitism perlu disesuaikan
         boolean isLargePopulation = (populationSize > maxGenerations);
         
-        // Factor 1: Stagnation (priority)
+        // Factor 1: Stagnation 
         if (stagnationCount > 20) {
-            // Temporary elitism reduction untuk eksplorasi lebih banyak
-            // ENHANCED: Untuk large population, reduction lebih kecil (keep more elite)
+            // Temporary elitism reduction
+            // Untuk large population, reduction lebih kecil
             double reductionFactor = isLargePopulation ? 0.6 : 0.5;
             dynamicElitism = Math.max(1, (int)(originalElitismCount * reductionFactor));
             return dynamicElitism;
         }
         
-        // Factor 2: Berdasarkan diversity (diversity rendah → lebih banyak elitism)
+        // Factor 2: Berdasarkan diversity
         double diversityRatio = currentDiversity / initialDiversity;
         if (diversityRatio < 0.3) {
-            // Diversity sangat rendah: tingkatkan elitism untuk mempertahankan solusi baik
+            // Diversity rendah: tingkatkan elitism
             dynamicElitism = (int) (originalElitismCount * 1.2);
         } else if (diversityRatio > 0.7) {
-            // Diversity tinggi: kurangi elitism untuk eksplorasi lebih banyak
-            // ENHANCED: Untuk large population, reduction lebih kecil
+            // Diversity tinggi: kurangi elitism
+            // Untuk large population, reduction lebih kecil
             double reductionFactor = isLargePopulation ? 0.85 : 0.8;
             dynamicElitism = Math.max(1, (int) (originalElitismCount * reductionFactor));
         }
         
-        // Factor 3: Berdasarkan progress (jika sudah dekat solusi, lebih banyak elitism)
-        // ENHANCED: Fine-tuning mode lebih agresif untuk puzzle 6x6 dan 7x7
+        // Factor 3: Berdasarkan progress
         if (bestFitness < 15.0) {
-            // Fine-tuning mode: sangat dekat solusi (6x6 biasanya < 15, 7x7 biasanya < 8)
-            // Tingkatkan elitism secara signifikan untuk mempertahankan solusi baik
             int additionalElitism;
             if (bestFitness < 2.0) {
-                // Sangat dekat solusi (hampir sempurna): elitism sangat tinggi
+                // Sangat dekat solusi: elitism sangat tinggi
                 additionalElitism = isLargePopulation ? 8 : 5;
             } else if (bestFitness < 5.0) {
-                // Dekat solusi (7x7 biasanya di sini): elitism tinggi
+                // Dekat solusi: elitism tinggi
                 additionalElitism = isLargePopulation ? 6 : 4;
             } else {
-                // Mendekati solusi (6x6 biasanya di sini): elitism moderate
+                // Mendekati solusi: elitism moderate
                 additionalElitism = isLargePopulation ? 4 : 3;
             }
-            int maxElitism = isLargePopulation ? populationSize / 6 : populationSize / 8; // ENHANCED: Max elitism lebih tinggi
+            int maxElitism = isLargePopulation ? populationSize / 6 : populationSize / 8; 
             dynamicElitism = Math.min(maxElitism, dynamicElitism + additionalElitism);
         } else if (bestFitness < 5.0 && averageFitness < 10.0) {
-            // Sudah dekat solusi: tingkatkan elitism untuk fine-tuning
-            // ENHANCED: Untuk large population, max elitism lebih tinggi
+            // Sudah dekat solusi: tingkatkan elitism
+            // Untuk large population, max elitism lebih tinggi
             int maxElitism = isLargePopulation ? populationSize / 8 : populationSize / 10;
             dynamicElitism = Math.min(maxElitism, dynamicElitism + 2);
         }
         
-        // ENHANCED: Clamp - untuk large population, max elitism lebih tinggi (30% vs 25% untuk fine-tuning)
+        // Untuk large population, max elitism lebih tinggi
         int maxElitismPercent = (bestFitness < 15.0) ? (isLargePopulation ? 30 : 25) : (isLargePopulation ? 25 : 20);
         return Math.max(1, Math.min(populationSize * maxElitismPercent / 100, dynamicElitism));
     }
@@ -539,14 +459,14 @@ public class ImprovedGeneticAlgorithm {
         sortPopulation();
         Chromosome[] newPopulation = new Chromosome[populationSize];
         
-        // Dynamic Elitism (IMPROVED - adaptive berdasarkan diversity dan progress)
+        // Dynamic Elitism
         int currentElitism = calculateDynamicElitism();
         
         for (int i = 0; i < currentElitism && i < populationSize; i++) {
             newPopulation[i] = population[i].clone();
         }
         
-        // Adaptive Crossover Rate (IMPROVED)
+        // Adaptive Crossover Rate
         double adaptiveCrossoverRate = calculateAdaptiveCrossoverRate();
         
         // Generate offspring
@@ -561,7 +481,7 @@ public class ImprovedGeneticAlgorithm {
                 offspring = new Chromosome[]{parent1.clone(), parent2.clone()};
             }
             
-            // Mutation dengan adaptive rate (IMPROVED)
+            // Mutation dengan adaptive rate
             for (Chromosome child : offspring) {
                 if (mutationStrategy instanceof AdaptiveMutation) {
                     ((AdaptiveMutation) mutationStrategy).updateGeneration(currentGeneration);
@@ -600,13 +520,13 @@ public class ImprovedGeneticAlgorithm {
         while (currentGeneration < maxGenerations && bestFitness > 0.0) {
             createNewGeneration();
             
-            // Check improvement dan update improvement rate (IMPROVED)
+            // Check improvement dan update improvement rate
             if (bestFitness < previousBestFitness - 0.0001) {
                 // Ada improvement, hitung improvement rate
                 double improvement = previousBestFitness - bestFitness;
                 double improvementRatio = (previousBestFitness > 0) ? improvement / previousBestFitness : 0.0;
                 
-                // Update improvement rate (exponential moving average)
+                // Update improvement rate
                 improvementRate = (improvementRate * 0.7) + (improvementRatio * 0.3);
                 
                 previousBestFitness = bestFitness;
@@ -617,7 +537,7 @@ public class ImprovedGeneticAlgorithm {
                 stagnationCount++;
             }
             
-            // Early stopping check (IMPROVED)
+            // Early stopping check
             if (shouldStopEarly()) {
                 System.out.println("\n[Early Stop] Stopping early due to low progress probability");
                 System.out.println("  Best Fitness: " + String.format("%.2f", bestFitness));
@@ -626,84 +546,58 @@ public class ImprovedGeneticAlgorithm {
                 break;
             }
             
-            // ENHANCED: Protect best solutions - jangan trigger escape jika sudah sangat dekat solusi
-            // Fine-tuning mode: jika fitness sangat dekat (6x6 < 15, 7x7 < 8), jangan gunakan escape yang agresif
+            // Protect best solutions
             boolean isFineTuningMode = (bestFitness < 15.0);
             
-            // Check stagnation dengan deteksi yang lebih cerdas dan sensitif (ENHANCED)
+            // Check stagnation
             if (isStagnating() && !isFineTuningMode) {
-                // ENHANCED: Escape mechanism lebih agresif dan trigger lebih cepat
-                // OPTIMIZED: Untuk large population strategy, trigger lebih cepat karena maxGen lebih kecil relatif
-                int triggerInterval = 8;  // OPTIMIZED: Default lebih cepat (dari 10) untuk large pop strategy
-                if (maxGenerations > 2000) triggerInterval = 6;   // ENHANCED: Lebih agresif
-                if (maxGenerations > 4000) triggerInterval = 5;   // ENHANCED: Sangat agresif
+                int triggerInterval = 8;  
+                if (maxGenerations > 2000) triggerInterval = 6;  
+                if (maxGenerations > 4000) triggerInterval = 5;  
                 
-                // OPTIMIZED: Untuk large population (pop > maxGen), trigger lebih cepat
                 if (populationSize > maxGenerations) {
-                    triggerInterval = Math.max(5, triggerInterval - 2);  // OPTIMIZED: Lebih cepat untuk large pop
+                    triggerInterval = Math.max(5, triggerInterval - 2);  
                 }
                 
-                // ENHANCED: Jika improvement rate rendah atau fitness tinggi, trigger lebih cepat
                 if (improvementRate < 0.002) {
-                    triggerInterval = Math.max(4, triggerInterval - 3);  // OPTIMIZED: Minimum 4 (dari 5)
+                    triggerInterval = Math.max(4, triggerInterval - 3);  
                 }
                 if (bestFitness > 15.0) {
-                    triggerInterval = Math.max(5, triggerInterval - 2);  // ENHANCED: Untuk puzzle besar
+                    triggerInterval = Math.max(5, triggerInterval - 2);  
                 }
                 
-                // ENHANCED: Trigger juga berdasarkan consecutive stagnation
-                if (stagnationCount > 8) {  // OPTIMIZED: Threshold lebih rendah (dari 10)
-                    triggerInterval = Math.max(3, triggerInterval / 2);  // OPTIMIZED: Lebih agresif, minimum 3
+                if (stagnationCount > 8) {  
+                    triggerInterval = Math.max(3, triggerInterval / 2);  
                 }
                 
-                // ENHANCED: Escape mechanism berdasarkan tingkat stagnasi dan kondisi populasi
-                // OPTIMIZED: Trigger lebih selektif - hanya jika benar-benar perlu
                 boolean shouldTriggerEscape = (stagnationCount % triggerInterval == 0);
                 
-                // ENHANCED: Juga trigger jika diversity sangat rendah ATAU improvement rate sangat rendah
                 if (currentDiversity < initialDiversity * 0.15 || improvementRate < 0.0001) {
-                    shouldTriggerEscape = true;  // Force trigger untuk diversity/improvement sangat rendah
+                    shouldTriggerEscape = true;  
                 }
                 
-                // ENHANCED: Skip escape jika baru saja ada improvement kecil (beri kesempatan)
                 if (bestFitness < previousBestFitness - 0.001 && stagnationCount < 10) {
-                    shouldTriggerEscape = false;  // Skip jika ada improvement kecil baru saja
+                    shouldTriggerEscape = false;  
                 }
                 
                 if (shouldTriggerEscape && escapeAttempts < maxEscapeAttempts) {
-                    System.out.println("\n[Stagnation " + stagnationCount + "] Applying EXPLORATION-focused escape mechanism...");
-                    System.out.println("  → Improvement Rate: " + String.format("%.6f", improvementRate) + 
-                                     ", Diversity: " + String.format("%.3f", currentDiversity) +
-                                     " (" + String.format("%.1f", (currentDiversity / initialDiversity * 100)) + "% of initial)");
-                    
-                    // ENHANCED: Threshold lebih rendah untuk trigger lebih cepat
-                    // OPTIMIZED: Untuk fitness hampir solved (fitness < 5), gunakan escape lebih konservatif
+                    System.out.println("\n[Stagnation " + stagnationCount + "] Applying Exploration focused escape mechanism...");
                     if (bestFitness < 5.0 && stagnationCount <= 15) {
-                        // Near solution: hanya mutation boost (jangan terlalu agresif)
+                        // Near solution: hanya mutation boost
                         escapeMutationBoost();
-                        String explorationPercent = (populationSize > maxGenerations) ? "15%" : "10%";
-                        System.out.println("  → [Near Solution] Mutation boost + Random exploration (" + explorationPercent + " new random)");
-                    } else if (stagnationCount <= 20) {  // ENHANCED: Dari 30 ke 20
+                    } else if (stagnationCount <= 20) {  
                         // Early stagnation: mutation boost + random exploration
                         escapeMutationBoost();
-                        String explorationPercent = (populationSize > maxGenerations) ? "15%" : "10%";
-                        System.out.println("  → Mutation boost + Random exploration (" + explorationPercent + " new random) + Temp elitism reduction");
-                    } else if (stagnationCount <= 40) {  // ENHANCED: Threshold dinaikkan sedikit (dari 35)
+                    } else if (stagnationCount <= 40) {  
                         // Medium stagnation: aggressive diversity injection + hybrid creation
                         escapeDiversityInjection();
-                        String replacePercent = (populationSize > maxGenerations) ? "65-70%" : "55-65%";
-                        System.out.println("  → Aggressive diversity injection (" + replacePercent + " replaced) + Hybrid chromosomes");
                     } else {
                         // Severe stagnation: aggressive partial restart + population expansion
                         escapePartialRestart();
-                        String replacePercent = (populationSize > maxGenerations) ? "90%" : "85%";
-                        System.out.println("  → Aggressive partial restart (" + replacePercent + " replaced, keep best 1 only) + Population expansion");
                         escapeAttempts++;
                     }
                     
                     updatePopulationStatistics();
-                    System.out.println("  → New diversity: " + String.format("%.3f", currentDiversity) + 
-                                     " (was: " + String.format("%.3f", initialDiversity * 0.2) + ")");
                     
                     // Reset stagnation count setelah escape
                     stagnationCount = 0;
@@ -711,7 +605,7 @@ public class ImprovedGeneticAlgorithm {
                 }
             }
             
-            // Print progress dengan adaptive parameters info (IMPROVED)
+            // Print progress dengan adaptive parameters info
             if (currentGeneration % 10 == 0 || bestFitness == 0.0) {
                 String stagIndicator = (stagnationCount > 0) ? " [Stag:" + stagnationCount + "]" : "";
                 String improvementInfo = String.format(" [ImpRate:%.4f]", improvementRate);
@@ -747,12 +641,12 @@ public class ImprovedGeneticAlgorithm {
     public double getAverageFitness() { return averageFitness; }
     public double getFitnessStdDev() { return fitnessStdDev; }
     
-    // Getters untuk parameter (untuk tracking dan dokumentasi)
+    // Getters untuk parameter
     public int getPopulationSize() { return populationSize; }
-    public double getCrossoverRate() { return crossoverRate; }  // Returns original rate
-    public double getMutationRate() { return mutationRate; }    // Returns original rate
+    public double getCrossoverRate() { return crossoverRate; }  
+    public double getMutationRate() { return mutationRate; }    
     public int getMaxGenerations() { return maxGenerations; }
-    public int getElitismCount() { return elitismCount; }       // Returns original elitism
+    public int getElitismCount() { return elitismCount; }       
     public double getImprovementRate() { return improvementRate; }
 }
 
